@@ -37,8 +37,8 @@
   - `backend/src/index.ts` — Hono app entry point with Bun.serve()
   - Route files: `backend/src/scrape/scrape.routes.ts`, `backend/src/media/media.routes.ts`
 
-- [ ] **Step 6**: Build React frontend
-  - `ScrapeForm.tsx` — textarea for URLs + submit button
+- [x] **Step 6**: Build React frontend
+  - kScrapeForm.tsx` — textarea for URLs + submit button
   - `BatchStatus.tsx` — polls batch status, shows progress bar
   - `MediaGrid.tsx` + `MediaCard.tsx` — CSS grid gallery with lazy loading
   - `FilterBar.tsx` — type dropdown (All/Image/Video) + search input
