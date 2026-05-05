@@ -7,7 +7,7 @@
   - Created `frontend/` with Vite + React 19 + TypeScript + Tailwind CSS
   - Directory structure: `src/{routes,services,workers,queues,db,lib}` (backend), `src/{components,hooks,api}` (frontend)
 
-- [ ] **Step 2**: Set up Docker Compose with PostgreSQL and Redis
+- [x] **Step 2**: Set up Docker Compose with PostgreSQL and Redis
   - Create `docker-compose.yml` with 4 services (backend, frontend, postgres, redis)
   - Memory limits: backend 400MB, postgres 256MB, redis 192MB, frontend ~40MB
   - Healthchecks for postgres (`pg_isready`) and redis (`redis-cli ping`)
