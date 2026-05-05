@@ -39,23 +39,23 @@ media-scraper/
 │   ├── src/
 │   │   ├── index.ts                  # Hono app + BullMQ worker bootstrap
 │   │   ├── config.ts                 # Env vars
-│   │   ├── routes/
-│   │   │   ├── scrape.routes.ts
-│   │   │   └── media.routes.ts
-│   │   ├── services/
-│   │   │   ├── scraper.service.ts    # HTML fetch + cheerio extraction
-│   │   │   └── media.service.ts      # DB queries
-│   │   ├── workers/
+│   │   ├── scrape/                   # Scraping feature module
+│   │   │   ├── scrape.routes.ts      # POST /api/scrape, GET /api/scrape/:batchId
+│   │   │   ├── scrape.service.ts     # HTML fetch + cheerio extraction
+│   │   │   ├── scrape.queue.ts       # BullMQ queue instance
 │   │   │   └── scrape.worker.ts      # BullMQ worker (concurrency: 10)
-│   │   ├── queues/
-│   │   │   └── scrape.queue.ts
+│   │   ├── media/                    # Media feature module
+│   │   │   ├── media.routes.ts       # GET /api/media (paginated, filtered)
+│   │   │   └── media.service.ts      # DB queries for media
 │   │   ├── db/
 │   │   │   ├── schema.ts             # Drizzle table definitions
 │   │   │   └── index.ts              # Drizzle client + postgres connection
 │   │   └── lib/
 │   │       └── redis.ts
-│   └── tests/load/
-│       └── scrape.load.js            # k6 script
+│   └── tests/
+│       ├── integration.ts            # Pipeline integration test
+│       └── load/
+│           └── scrape.load.js        # k6 script
 ├── frontend/
 │   ├── Dockerfile                    # Multi-stage: Bun build → nginx serve
 │   ├── package.json
@@ -75,6 +75,8 @@ media-scraper/
 └── nginx/
     └── default.conf
 ```
+
+Feature-based structure: each domain (`scrape/`, `media/`) groups its routes, services, queue, and worker together. Shared infrastructure (`db/`, `lib/`) stays separate.
 
 Single backend process runs both Hono API and BullMQ worker in-process (saves container overhead on 1GB RAM).
 

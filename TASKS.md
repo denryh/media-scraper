@@ -5,32 +5,37 @@
 - [x] **Step 1**: Scaffold project structure and initialize packages
   - Created `backend/` with Bun, installed: hono, @hono/zod-validator, zod, bullmq, ioredis, cheerio, drizzle-orm, postgres, pino, drizzle-kit
   - Created `frontend/` with Vite + React 19 + TypeScript + Tailwind CSS
-  - Directory structure: `src/{routes,services,workers,queues,db,lib}` (backend), `src/{components,hooks,api}` (frontend)
+  - Feature-based structure: `src/{scrape,media,db,lib}` (backend), `src/{components,hooks,api}` (frontend)
 
 - [x] **Step 2**: Set up Docker Compose with PostgreSQL and Redis
-  - Create `docker-compose.yml` with 4 services (backend, frontend, postgres, redis)
-  - Memory limits: backend 400MB, postgres 256MB, redis 192MB, frontend ~40MB
+  - `docker-compose.yml` with 4 services (backend, frontend, postgres, redis)
+  - Memory limits: backend 400MB, postgres 256MB, redis 192MB, frontend 64MB
   - Healthchecks for postgres (`pg_isready`) and redis (`redis-cli ping`)
-  - Create `.env.example`
+  - Ports exposed: postgres 5432, redis 6379 (for local dev)
+  - Redis eviction policy: `noeviction` (required by BullMQ)
+  - `.env.example` created
 
-- [ ] **Step 3**: Set up Drizzle schema, config, and migrations
-  - Create `backend/src/db/schema.ts` — batches, scrape_jobs, media tables
-  - Create `backend/drizzle.config.ts`
-  - Create `backend/src/db/index.ts` — Drizzle client + postgres connection singleton
+- [x] **Step 3**: Set up Drizzle schema, config, and migrations
+  - `backend/src/db/schema.ts` — batches, scrape_jobs, media tables with indexes
+  - `backend/drizzle.config.ts`
+  - `backend/src/db/index.ts` — Drizzle client + postgres connection singleton
+  - Migration generated and applied successfully
 
-- [ ] **Step 4**: Build scraping pipeline (queue, worker, service)
-  - `backend/src/services/scraper.service.ts` — cheerio-based media extraction (img, video, source, a[href])
-  - `backend/src/queues/scrape.queue.ts` — BullMQ queue instance
-  - `backend/src/workers/scrape.worker.ts` — BullMQ worker (concurrency: 10, rate: 50/sec)
+- [x] **Step 4**: Build scraping pipeline (queue, worker, service)
+  - `backend/src/scrape/scrape.service.ts` — cheerio-based media extraction (img, video, source, a[href])
+  - `backend/src/scrape/scrape.queue.ts` — BullMQ queue instance
+  - `backend/src/scrape/scrape.worker.ts` — BullMQ worker (concurrency: 10, rate: 50/sec)
   - `backend/src/lib/redis.ts` — ioredis connection singleton
   - `backend/src/config.ts` — environment variables
+  - `backend/tests/integration.ts` — pipeline integration test
+  - Verified end-to-end: example.com + wikipedia.org
 
 - [ ] **Step 5**: Build API routes (scrape + media endpoints)
   - `POST /api/scrape` — accept `{ urls: string[] }`, create batch, enqueue jobs, return batchId
   - `GET /api/scrape/:batchId` — poll batch status + per-job progress
   - `GET /api/media` — paginated media list with type/search filtering
   - `backend/src/index.ts` — Hono app entry point with Bun.serve()
-  - Route files: `backend/src/routes/scrape.routes.ts`, `backend/src/routes/media.routes.ts`
+  - Route files: `backend/src/scrape/scrape.routes.ts`, `backend/src/media/media.routes.ts`
 
 - [ ] **Step 6**: Build React frontend
   - `ScrapeForm.tsx` — textarea for URLs + submit button
