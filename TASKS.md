@@ -30,7 +30,7 @@
   - `backend/tests/integration.ts` — pipeline integration test
   - Verified end-to-end: example.com + wikipedia.org
 
-- [ ] **Step 5**: Build API routes (scrape + media endpoints)
+- [x] **Step 5**: build api routes (scrape + media endpoints)
   - `POST /api/scrape` — accept `{ urls: string[] }`, create batch, enqueue jobs, return batchId
   - `GET /api/scrape/:batchId` — poll batch status + per-job progress
   - `GET /api/media` — paginated media list with type/search filtering
