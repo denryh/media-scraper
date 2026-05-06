@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ScrapeForm } from './components/ScrapeForm';
 import { BatchStatus } from './components/BatchStatus';
 import { FilterBar } from './components/FilterBar';
@@ -7,20 +8,17 @@ import { Pagination } from './components/Pagination';
 import { useMedia } from './hooks/useMedia';
 
 function App() {
+  const queryClient = useQueryClient();
   const [batchId, setBatchId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [type, setType] = useState('');
   const [search, setSearch] = useState('');
 
-  const { data, pagination, loading, refetch } = useMedia({ page, type: type || undefined, search: search || undefined });
-
-  const handleBatchCreated = (id: string) => {
-    setBatchId(id);
-  };
+  const { data, isLoading } = useMedia({ page, type: type || undefined, search: search || undefined });
 
   const handleBatchComplete = useCallback(() => {
-    refetch();
-  }, [refetch]);
+    queryClient.invalidateQueries({ queryKey: ['media'] });
+  }, [queryClient]);
 
   const handleTypeChange = (newType: string) => {
     setType(newType);
@@ -41,7 +39,7 @@ function App() {
         </header>
 
         <section className="space-y-4">
-          <ScrapeForm onBatchCreated={handleBatchCreated} />
+          <ScrapeForm onBatchCreated={setBatchId} />
           <BatchStatus batchId={batchId} onComplete={handleBatchComplete} />
         </section>
 
@@ -52,11 +50,11 @@ function App() {
             onTypeChange={handleTypeChange}
             onSearchChange={handleSearchChange}
           />
-          <MediaGrid items={data} loading={loading} />
+          <MediaGrid items={data?.data ?? []} loading={isLoading} />
           <Pagination
-            page={pagination.page}
-            totalPages={pagination.totalPages}
-            total={pagination.total}
+            page={data?.pagination.page ?? 1}
+            totalPages={data?.pagination.totalPages ?? 0}
+            total={data?.pagination.total ?? 0}
             onPageChange={setPage}
           />
         </section>

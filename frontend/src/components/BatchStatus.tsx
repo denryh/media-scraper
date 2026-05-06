@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useScrapeStatus } from '../hooks/useScrapeStatus';
 
 interface BatchStatusProps {
@@ -6,12 +7,24 @@ interface BatchStatusProps {
 }
 
 export function BatchStatus({ batchId, onComplete }: BatchStatusProps) {
-  const { status, error } = useScrapeStatus(batchId);
+  const { data: status, isError, error } = useScrapeStatus(batchId);
+
+  const isDone = status?.status === 'completed' || status?.status === 'failed';
+
+  useEffect(() => {
+    if (isDone && status?.completed && status.completed > 0) {
+      onComplete();
+    }
+  }, [isDone, status?.completed, onComplete]);
 
   if (!batchId) return null;
 
-  if (error) {
-    return <div className="rounded-lg border border-red-800 bg-red-900/20 p-4 text-sm text-red-400">{error}</div>;
+  if (isError) {
+    return (
+      <div className="rounded-lg border border-red-800 bg-red-900/20 p-4 text-sm text-red-400">
+        {error instanceof Error ? error.message : 'Error loading batch status'}
+      </div>
+    );
   }
 
   if (!status) {
@@ -21,13 +34,6 @@ export function BatchStatus({ batchId, onComplete }: BatchStatusProps) {
   const progress = status.totalUrls > 0
     ? Math.round(((status.completed + status.failed) / status.totalUrls) * 100)
     : 0;
-
-  const isDone = status.status === 'completed' || status.status === 'failed';
-
-  if (isDone && status.completed > 0) {
-    // Trigger refetch of media list once
-    setTimeout(onComplete, 500);
-  }
 
   return (
     <div className="space-y-2 rounded-lg border border-gray-700 bg-gray-800/50 p-4">
