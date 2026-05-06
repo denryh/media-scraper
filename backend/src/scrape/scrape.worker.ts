@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq';
 import { eq, sql } from 'drizzle-orm';
 import { redis } from '../lib/redis';
+import { logger } from '../lib/logger';
 import { config } from '../config';
 import { db } from '../db';
 import { batches, scrapeJobs, media } from '../db/schema';
@@ -85,9 +86,9 @@ export function startWorker() {
     const isLastAttempt =
       job.attemptsMade >= (job.opts.attempts ?? config.jobRetries);
 
-    console.error(
-      `Job ${job.id} attempt ${job.attemptsMade} failed${isLastAttempt ? ' permanently' : ' (will retry)'}:`,
-      err.message,
+    logger.error(
+      { jobId: job.id, attempt: job.attemptsMade, url: job.data.url, err: err.message },
+      isLastAttempt ? 'job failed permanently' : 'job failed, will retry',
     );
 
     if (!isLastAttempt) return;
@@ -112,11 +113,12 @@ export function startWorker() {
   });
 
   worker.on('completed', (job) => {
-    console.log(`Job ${job.id} completed for ${job.data.url}`);
+    logger.info({ jobId: job.id, url: job.data.url }, 'job completed');
   });
 
-  console.log(
-    `Scrape worker started (concurrency: ${config.workerConcurrency}, rate: ${config.workerRateLimit}/s)`,
+  logger.info(
+    { concurrency: config.workerConcurrency, rateLimit: config.workerRateLimit },
+    'scrape worker started',
   );
 
   return worker;

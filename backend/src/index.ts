@@ -1,16 +1,30 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { requestId } from 'hono/request-id';
+import { structuredLogger } from '@hono/structured-logger';
+import type { Logger } from 'pino';
 import { config } from './config';
+import { logger } from './lib/logger';
 import { scrapeRoutes } from './scrape/scrape.routes';
 import { mediaRoutes } from './media/media.routes';
 import { startWorker } from './scrape/scrape.worker';
 import { runMigrations } from './db/migrate';
 
+type AppEnv = {
+  Variables: {
+    logger: Logger;
+  };
+};
+
 await runMigrations();
 
-const app = new Hono();
+const app = new Hono<AppEnv>();
 
 app.use('*', cors());
+app.use('*', requestId());
+app.use('*', structuredLogger({
+  createLogger: (c) => logger.child({ requestId: c.get('requestId') }),
+}));
 
 app.get('/api/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -19,12 +33,11 @@ app.get('/api/health', (c) => {
 app.route('/api/scrape', scrapeRoutes);
 app.route('/api/media', mediaRoutes);
 
-// Start BullMQ worker in-process
 startWorker();
+
+logger.info({ port: config.port }, 'backend started');
 
 export default {
   port: config.port,
   fetch: app.fetch,
 };
-
-console.log(`Backend running on http://localhost:${config.port}`);
