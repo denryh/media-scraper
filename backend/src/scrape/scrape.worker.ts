@@ -46,22 +46,16 @@ async function processScrapeJob(job: { data: ScrapeJobData }) {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
 
-    // Mark job failed
+    // Mark job failed (every attempt) — batch counter updated only on final failure via worker.on('failed')
     await db
       .update(scrapeJobs)
       .set({ status: 'failed', error: errorMessage, updatedAt: new Date() })
       .where(eq(scrapeJobs.id, jobId));
 
-    // Increment batch failed counter
-    await db
-      .update(batches)
-      .set({ failed: sql`${batches.failed} + 1`, updatedAt: new Date() })
-      .where(eq(batches.id, batchId));
-
     throw err; // Let BullMQ handle retries
   }
 
-  // Check if batch is done
+  // Check if batch is done (success path — failure path handled in worker.on('failed'))
   const [batch] = await db
     .select()
     .from(batches)
@@ -69,10 +63,7 @@ async function processScrapeJob(job: { data: ScrapeJobData }) {
   if (batch && batch.completed + batch.failed >= batch.totalUrls) {
     await db
       .update(batches)
-      .set({
-        status: batch.failed > 0 ? 'completed' : 'completed',
-        updatedAt: new Date(),
-      })
+      .set({ status: 'completed', updatedAt: new Date() })
       .where(eq(batches.id, batchId));
   }
 }
@@ -87,8 +78,37 @@ export function startWorker() {
     },
   });
 
-  worker.on('failed', (job, err) => {
-    console.error(`Job ${job?.id} failed:`, err.message);
+  // fires on every failed attempt — only act on the final one
+  worker.on('failed', async (job, err) => {
+    if (!job) return;
+
+    const isLastAttempt =
+      job.attemptsMade >= (job.opts.attempts ?? config.jobRetries);
+
+    console.error(
+      `Job ${job.id} attempt ${job.attemptsMade} failed${isLastAttempt ? ' permanently' : ' (will retry)'}:`,
+      err.message,
+    );
+
+    if (!isLastAttempt) return;
+
+    const { batchId } = job.data;
+
+    await db
+      .update(batches)
+      .set({ failed: sql`${batches.failed} + 1`, updatedAt: new Date() })
+      .where(eq(batches.id, batchId));
+
+    const [batch] = await db
+      .select()
+      .from(batches)
+      .where(eq(batches.id, batchId));
+    if (batch && batch.completed + batch.failed >= batch.totalUrls) {
+      await db
+        .update(batches)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(eq(batches.id, batchId));
+    }
   });
 
   worker.on('completed', (job) => {
