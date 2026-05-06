@@ -4,6 +4,9 @@ import { config } from './config';
 import { scrapeRoutes } from './scrape/scrape.routes';
 import { mediaRoutes } from './media/media.routes';
 import { startWorker } from './scrape/scrape.worker';
+import { runMigrations } from './db/migrate';
+
+await runMigrations();
 
 const app = new Hono();
 

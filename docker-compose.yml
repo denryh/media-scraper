@@ -2,14 +2,14 @@ services:
   backend:
     build: ./backend
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       DATABASE_URL: postgresql://scraper:scraper@postgres:5432/media_scraper
       REDIS_URL: redis://redis:6379
-      PORT: "3001"
+      PORT: '3001'
       NODE_ENV: production
-      WORKER_CONCURRENCY: "10"
-      WORKER_RATE_LIMIT: "50"
+      WORKER_CONCURRENCY: '10'
+      WORKER_RATE_LIMIT: '50'
     depends_on:
       postgres:
         condition: service_healthy
@@ -18,13 +18,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1.0"
+          cpus: '1.0'
           memory: 400M
 
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - '3000:80'
     depends_on:
       - backend
     deploy:
@@ -35,7 +35,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - '5432:5432'
     environment:
       POSTGRES_USER: scraper
       POSTGRES_PASSWORD: scraper
@@ -43,7 +43,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U scraper"]
+      test: ['CMD-SHELL', 'pg_isready -U scraper -d media_scraper']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -55,10 +55,10 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     command: redis-server --maxmemory 128mb --maxmemory-policy noeviction
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 5
