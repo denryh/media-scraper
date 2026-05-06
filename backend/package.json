@@ -15,6 +15,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@media-scraper/types": "workspace:*",
     "@hono/zod-validator": "^0.7.6",
     "bullmq": "^5.76.5",
     "cheerio": "^1.2.0",

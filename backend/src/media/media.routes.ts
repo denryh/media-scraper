@@ -1,21 +1,14 @@
 import { Hono } from 'hono';
-import { z } from 'zod';
 import { eq, ilike, or, sql, count } from 'drizzle-orm';
+import { MediaQuerySchema } from '@media-scraper/types';
 import { db } from '../db';
 import { media } from '../db/schema';
-
-const querySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  type: z.enum(['image', 'video']).optional(),
-  search: z.string().optional(),
-});
 
 export const mediaRoutes = new Hono();
 
 // GET /api/media — paginated media list with filtering
 mediaRoutes.get('/', async (c) => {
-  const parsed = querySchema.safeParse(c.req.query());
+  const parsed = MediaQuerySchema.safeParse(c.req.query());
 
   if (!parsed.success) {
     return c.json({ error: 'Invalid query parameters', details: parsed.error.flatten() }, 400);

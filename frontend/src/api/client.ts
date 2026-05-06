@@ -1,44 +1,8 @@
+import type { BatchResponse, BatchStatus, MediaItem, MediaResponse } from '@media-scraper/types';
+
+export type { BatchResponse, BatchStatus, MediaItem, MediaResponse };
+
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
-
-export interface BatchResponse {
-  batchId: string;
-  totalUrls: number;
-  status: string;
-}
-
-export interface BatchStatus {
-  id: string;
-  status: string;
-  totalUrls: number;
-  completed: number;
-  failed: number;
-  createdAt: string;
-  jobs: {
-    id: string;
-    sourceUrl: string;
-    status: string;
-    error: string | null;
-  }[];
-}
-
-export interface MediaItem {
-  id: string;
-  mediaUrl: string;
-  type: 'image' | 'video';
-  title: string | null;
-  sourceUrl: string;
-  createdAt: string;
-}
-
-export interface MediaResponse {
-  data: MediaItem[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
 
 export async function submitScrape(urls: string[]): Promise<BatchResponse> {
   const res = await fetch(`${API_BASE}/scrape`, {

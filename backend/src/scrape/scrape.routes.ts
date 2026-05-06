@@ -1,20 +1,16 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { z } from 'zod';
 import { eq } from 'drizzle-orm';
+import { ScrapeRequestSchema } from '@media-scraper/types';
 import { db } from '../db';
 import { batches, scrapeJobs } from '../db/schema';
 import { scrapeQueue } from './scrape.queue';
-import { config } from '../config';
 
-const scrapeSchema = z.object({
-  urls: z.array(z.string().url()).min(1).max(config.maxUrlsPerRequest),
-});
 
 export const scrapeRoutes = new Hono();
 
 // POST /api/scrape — accept URLs, create batch, enqueue jobs
-scrapeRoutes.post('/', zValidator('json', scrapeSchema), async (c) => {
+scrapeRoutes.post('/', zValidator('json', ScrapeRequestSchema), async (c) => {
   const { urls } = c.req.valid('json');
 
   // Create batch
