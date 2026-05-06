@@ -1,61 +1,44 @@
 # Media Scraper - Task Tracker
 
-## Tasks
+## All Steps Complete
 
 - [x] **Step 1**: Scaffold project structure and initialize packages
-  - Created `backend/` with Bun, installed: hono, @hono/zod-validator, zod, bullmq, ioredis, cheerio, drizzle-orm, postgres, pino, drizzle-kit
-  - Created `frontend/` with Vite + React 19 + TypeScript + Tailwind CSS
-  - Feature-based structure: `src/{scrape,media,db,lib}` (backend), `src/{components,hooks,api}` (frontend)
-
 - [x] **Step 2**: Set up Docker Compose with PostgreSQL and Redis
-  - `docker-compose.yml` with 4 services (backend, frontend, postgres, redis)
-  - Memory limits: backend 400MB, postgres 256MB, redis 192MB, frontend 64MB
-  - Healthchecks for postgres (`pg_isready`) and redis (`redis-cli ping`)
-  - Ports exposed: postgres 5432, redis 6379 (for local dev)
-  - Redis eviction policy: `noeviction` (required by BullMQ)
-  - `.env.example` created
-
 - [x] **Step 3**: Set up Drizzle schema, config, and migrations
-  - `backend/src/db/schema.ts` — batches, scrape_jobs, media tables with indexes
-  - `backend/drizzle.config.ts`
-  - `backend/src/db/index.ts` — Drizzle client + postgres connection singleton
-  - Migration generated and applied successfully
-
 - [x] **Step 4**: Build scraping pipeline (queue, worker, service)
-  - `backend/src/scrape/scrape.service.ts` — cheerio-based media extraction (img, video, source, a[href])
-  - `backend/src/scrape/scrape.queue.ts` — BullMQ queue instance
-  - `backend/src/scrape/scrape.worker.ts` — BullMQ worker (concurrency: 10, rate: 50/sec)
-  - `backend/src/lib/redis.ts` — ioredis connection singleton
-  - `backend/src/config.ts` — environment variables
-  - `backend/tests/integration.ts` — pipeline integration test
-  - Verified end-to-end: example.com + wikipedia.org
-
-- [x] **Step 5**: build api routes (scrape + media endpoints)
-  - `POST /api/scrape` — accept `{ urls: string[] }`, create batch, enqueue jobs, return batchId
-  - `GET /api/scrape/:batchId` — poll batch status + per-job progress
-  - `GET /api/media` — paginated media list with type/search filtering
-  - `backend/src/index.ts` — Hono app entry point with Bun.serve()
-  - Route files: `backend/src/scrape/scrape.routes.ts`, `backend/src/media/media.routes.ts`
-
+- [x] **Step 5**: Build API routes (scrape + media endpoints)
 - [x] **Step 6**: Build React frontend
-  - kScrapeForm.tsx` — textarea for URLs + submit button
-  - `BatchStatus.tsx` — polls batch status, shows progress bar
-  - `MediaGrid.tsx` + `MediaCard.tsx` — CSS grid gallery with lazy loading
-  - `FilterBar.tsx` — type dropdown (All/Image/Video) + search input
-  - `Pagination.tsx` — page navigation
-  - Hooks: `useMedia.ts`, `useScrapeStatus.ts`
-  - API client: `src/api/client.ts`
+- [x] **Step 7**: Dockerize backend and frontend
+- [x] **Step 8**: Write k6 load test
 
-- [ ] **Step 7**: Dockerize backend and frontend
-  - `backend/Dockerfile` — `oven/bun:alpine`
-  - `frontend/Dockerfile` — multi-stage: Bun build stage → nginx:alpine serve stage
-  - `nginx/default.conf` — reverse proxy config
+## Load Test Results
 
-- [ ] **Step 8**: Write k6 load test
-  - `backend/tests/load/scrape.load.js`
-  - `shared-iterations` executor: 100 VUs, 5000 iterations
-  - Target: `POST /api/scrape` with 1 URL per request
-  - Thresholds: p95 < 2s, failure rate < 1%
+- 5000 requests in 2.3s across 100 VUs
+- p95 latency: 76.44ms (threshold: <2000ms)
+- Failure rate: 0.00% (threshold: <1%)
+- Throughput: 2167 req/s
+- All thresholds passed
+
+## Quick Reference
+
+```bash
+# Start everything
+docker compose up -d
+
+# Run locally (dev)
+docker compose up postgres redis -d
+cd backend && DATABASE_URL="postgresql://scraper:scraper@localhost:5432/media_scraper" REDIS_URL="redis://localhost:6379" bun run dev
+cd frontend && bun run dev
+
+# Run integration test
+cd backend && DATABASE_URL="..." REDIS_URL="..." bun run test:integration
+
+# Run load test (requires k6 + docker stack running)
+k6 run backend/tests/load/scrape.load.js
+
+# Stop
+docker compose down -v
+```
 
 ## Reference
 
