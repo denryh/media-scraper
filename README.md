@@ -36,7 +36,7 @@ Frontend dev server runs at http://localhost:5173 and proxies `/api` to the back
 | Runtime | Bun |
 | API | Hono + Zod validation |
 | Queue | BullMQ + Redis |
-| Scraping | cheerio + native fetch |
+| Scraping | htmlparser2 (SAX streaming) + native fetch |
 | Database | PostgreSQL 16 + Drizzle ORM |
 | Frontend | React 19 + Vite + Tailwind CSS v4 |
 | State | TanStack Query v5 |
@@ -45,7 +45,9 @@ Frontend dev server runs at http://localhost:5173 and proxies `/api` to the back
 
 Submitting URLs is non-blocking: the API creates a batch record and enqueues jobs immediately, returning a `batchId` before any scraping begins. A BullMQ worker (concurrency: 10, rate: 50/s) processes the queue and updates the batch counters as jobs complete or fail. The frontend polls the batch status and refreshes the media grid when done.
 
-Each URL is fetched with a 10s timeout and a 2MB body cap. Extracted media types:
+Each URL is fetched with a 10s timeout. Rather than buffering the full response and parsing a DOM tree (cheerio peaks at 3–5× the raw HTML size), the response body is streamed directly into an `htmlparser2` SAX parser — memory per job stays proportional to the number of media items found, not the page size. This removes the need for a body size cap and keeps the worker footprint flat regardless of how large the target page is.
+
+Extracted media types:
 
 - `<img src>` — images
 - `<picture><source srcset>` — responsive images (first candidate)

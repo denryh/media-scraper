@@ -70,13 +70,15 @@ POST /api/scrape
   → returns {batchId} immediately (async — jobs not yet processed)
 
 BullMQ worker (concurrency: 10, rate: 50/s)
-  → fetchAndExtract(url) — fetch + cheerio, 10s timeout, 2MB cap
+  → fetchAndExtract(url) — fetchStream() + extractFromStream(), 10s timeout
   → inserts media rows
   → updates batch counters (completed/failed)
   → batch.status = 'completed' when completed + failed >= totalUrls
 ```
 
-The worker intentionally limits to 10 concurrent outbound fetches to stay within 1GB RAM. The API can accept thousands of requests; the queue drains them at a controlled rate.
+`fetchAndExtract` streams the response body directly into an `htmlparser2` SAX parser — no full HTML buffer, no DOM tree. Memory per job is proportional to extracted results, not page size, so no body size cap is needed.
+
+The API can accept thousands of requests; the queue drains them at a controlled rate.
 
 ### Batch failure counting
 
@@ -91,6 +93,10 @@ The worker intentionally limits to 10 concurrent outbound fetches to stay within
 | `jobRetries` | 3 | — |
 | `fetchTimeout` | 10s | — |
 | `maxUrlsPerRequest` | 500 | — |
+
+### Docker
+
+Each service has its own Dockerfile (`backend/Dockerfile`, `frontend/Dockerfile`). Both use `context: .` (repo root) in `docker-compose.yml` so the full monorepo is available during build. All workspace `package.json` manifests must be copied before `bun install` so Bun can resolve `workspace:*` references — adding a new workspace requires adding its `package.json` COPY line to both Dockerfiles.
 
 ### Logging
 
