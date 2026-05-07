@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const MAX_URLS_PER_REQUEST = 500;
 
 export const ScrapeRequestSchema = z.object({
-  urls: z.array(z.string().url()).min(1).max(MAX_URLS_PER_REQUEST),
+  urls: z.array(z.url()).min(1).max(MAX_URLS_PER_REQUEST),
 });
 export type ScrapeRequest = z.infer<typeof ScrapeRequestSchema>;
 
