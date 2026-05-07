@@ -21,12 +21,18 @@
 // Override defaults:
 //   k6 run -e BACKEND_URL=http://localhost:3001 \
 //          -e FIXTURE_URL=http://host.docker.internal:9099 \
+//          -e FIXTURE_PATH=/heavy \
 //          backend/tests/load/scrape.load.js
 //
 // FIXTURE_URL is the URL the *backend* uses to reach the fixture. When the
 // backend runs in docker compose, that's host.docker.internal:9099 (the
 // default). When the backend runs via `bun run dev`, override with
 // http://localhost:9099.
+//
+// FIXTURE_PATH:
+//   ''        — small page baseline (default)
+//   /heavy    — multi-MB pages, validates the SAX streaming claim by
+//               comparing backend_proc:rss_mb peaks against the baseline.
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -34,6 +40,9 @@ import { Trend, Counter } from 'k6/metrics';
 
 const BACKEND_URL = __ENV.BACKEND_URL || 'http://localhost:3001';
 const FIXTURE_URL = __ENV.FIXTURE_URL || 'http://host.docker.internal:9099';
+// '' = small page (default), '/heavy' = multi-MB body with same media tags.
+// Used to validate the SAX-streaming claim by comparing RSS peaks.
+const FIXTURE_PATH = __ENV.FIXTURE_PATH || '';
 const POLL_INTERVAL_MS = Number(__ENV.POLL_INTERVAL_MS) || 2000;
 const POLL_TIMEOUT_MS = Number(__ENV.POLL_TIMEOUT_MS) || 5 * 60 * 1000;
 
@@ -75,7 +84,7 @@ export const options = {
 function buildUrls(count) {
   const urls = new Array(count);
   for (let i = 0; i < count; i++) {
-    urls[i] = `${FIXTURE_URL}/page-${__VU}-${__ITER}-${i}`;
+    urls[i] = `${FIXTURE_URL}${FIXTURE_PATH}/page-${__VU}-${__ITER}-${i}`;
   }
   return urls;
 }

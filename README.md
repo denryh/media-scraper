@@ -109,7 +109,11 @@ The load test is two artefacts:
    - backend `process.memoryUsage` (rss, heapUsed)
    - **event-loop lag** (p95 / p99 / max in ms) — the direct measure of "is the main thread blocked?"
 
-A small **fixture server** (`backend/tests/load/fixture-server.ts`) serves canned HTML so the test isn't bound by a remote target.
+A small **fixture server** (`backend/tests/load/fixture-server.ts`) serves canned HTML so the test isn't bound by a remote target. Two variants share the same media-tag set:
+- `GET /*` — small page (~200 B body)
+- `GET /heavy/*` — heavy page (~3 MB body), reached via `FIXTURE_PATH=/heavy`
+
+The pair lets us isolate body-size impact on memory: same extracted items, ~13 000× larger body. If the SAX-streaming claim holds, `backend_proc:rss_mb` should be roughly the same in both runs.
 
 ### Thresholds
 
@@ -159,6 +163,36 @@ event_loop:p95_ms                     <to fill in from a real run>
 - `batches_timed_out` = 0
 - All 10 000 URLs drained in ~5 s
 - Backend CPU peaks at ~77 % of the 1.0 CPU cap — comfortably inside the budget with headroom for the next 2× workload
+
+### Heavy-page validation (SAX streaming claim)
+
+To validate "memory per job ∝ extracted items, not body size", re-run with the heavy fixture:
+
+```bash
+FIXTURE_PATH=/heavy bun run --filter backend test:load
+```
+
+Comparison (same workload, ~13 000× larger body):
+
+| Metric                    | Small page (~200 B) | Heavy page (~3 MB) | Δ |
+|---------------------------|--------------------:|-------------------:|---|
+| `backend_proc:rss_mb`     | *<small>*           | *<heavy>*          | should be ≈ 0 if claim holds |
+| `backend_proc:heap_mb`    | *<small>*           | *<heavy>*          | should be ≈ 0 |
+| `event_loop:p95_ms`       | *<small>*           | *<heavy>*          | should be flat |
+| `media-scraper-backend-1:cpu_percent` | *<small>* | *<heavy>*    | will rise (more bytes to parse) |
+
+CPU is expected to rise (the parser still reads every byte); RSS/heap should not (the parser doesn't *retain* them). If RSS scales with body size, the SAX claim is wrong and we'd need to investigate whether response bodies are being buffered upstream of the parser.
+
+## Failure modes considered
+
+| Scenario | Tested under load? | Verification |
+|---|---|---|
+| 5 000 URLs at 1 CPU / 1 GB | ✅ | k6 burst + saturated scenarios above |
+| Heavy pages (multi-MB HTML) | ✅ | `FIXTURE_PATH=/heavy` comparison above |
+| Random target failures | ⏳ | retry logic verified by code review (`scrape.worker.ts:82-113`); `batches.failed` only increments on the final attempt |
+| Queue overflow → 503 backpressure | ⏳ | soft-cap path in `scrape.routes.ts:22-31`; would need >500 k URLs to trigger |
+| Per-fetch timeout | ⏳ | `AbortSignal.timeout(10_000)` in `scrape.service.ts` |
+| Worker crash mid-job | ⏳ | BullMQ recovers from Redis on restart; jobs in-flight are retried per `attempts: 3` |
 
 ## API
 

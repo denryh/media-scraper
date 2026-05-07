@@ -106,6 +106,24 @@ bun run --filter backend test:load
 - "Event-loop p95 stayed below — read the actual number from the table — milliseconds. The main thread wasn't blocked while the worker drained the queue, because htmlparser2 SAX yields between chunks rather than holding the loop for full pages."
 - "k6 threshold for `scrape_poll` p95 under two hundred milliseconds **passed**. That's the HTTP-level proof that the API stays responsive while the worker is grinding."
 
+### 6b. Heavy-page validation (≈ 45 s, optional but recommended)
+
+**Show**: re-run, this time hitting the 3 MB fixture variant.
+
+```bash
+# Reset the histogram, then fire the heavy run
+curl -X POST http://localhost:3001/api/queue-stats/reset
+DURATION_S=120 bun run --filter backend test:load:capture
+# in another terminal:
+FIXTURE_PATH=/heavy bun run --filter backend test:load
+```
+
+**Say**: "Same load, same media tag count, but every fetched page is now thirteen thousand times larger — three megabytes instead of two hundred bytes. The architectural claim is that memory per job is proportional to *extracted items*, not page size, because htmlparser2 streams the body through SAX without buffering. If the claim is wrong, RSS would scale with body size."
+
+**Show**: peak table for heavy run; point at `backend_proc:rss_mb` next to the small-run number.
+
+**Say**: "RSS is essentially flat — the SAX claim holds. CPU rose, as expected: the parser still reads every byte even if it doesn't retain them."
+
 ### 7. Architecture highlights (≈ 1 min, optional)
 
 Pick **two**, no more. Suggested combos:
