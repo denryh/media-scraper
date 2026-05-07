@@ -31,19 +31,34 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="mx-auto max-w-6xl px-4 py-8 space-y-8">
-        <header>
-          <h1 className="text-3xl font-bold">Media Scraper</h1>
-          <p className="mt-1 text-sm text-gray-500">Enter URLs to scrape images and videos</p>
+    <div className="min-h-screen bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+      <div className="mx-auto max-w-5xl px-6 py-12 sm:py-16">
+        <header className="mb-12 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-900">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Media Scraper</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Extract images and videos from any URL</p>
+          </div>
         </header>
 
-        <section className="space-y-4">
+        <section className="mb-10 space-y-3">
           <ScrapeForm onBatchCreated={setBatchId} />
           <BatchStatus batchId={batchId} onComplete={handleBatchComplete} />
         </section>
 
-        <section className="space-y-4">
+        <section className="space-y-6">
+          <div className="flex items-end justify-between gap-4 border-b border-zinc-200 pb-4 dark:border-zinc-800">
+            <h2 className="text-base font-semibold tracking-tight">Library</h2>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              {data?.pagination.total ?? 0} items
+            </span>
+          </div>
           <FilterBar
             type={type}
             search={search}
