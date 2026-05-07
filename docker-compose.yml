@@ -17,6 +17,8 @@ services:
         condition: service_healthy
     init: true
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.0
 
   frontend:
     build:
@@ -45,6 +47,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    mem_limit: 512m
+    cpus: 0.5
 
   redis:
     image: redis:7-alpine
@@ -56,6 +60,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    mem_limit: 256m
+    cpus: 0.25
 
 volumes:
   pgdata:

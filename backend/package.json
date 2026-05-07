@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "bun run src/index.ts | pino-pretty",
     "typecheck": "tsc --noEmit",
-    "test:integration": "bun run tests/integration.ts"
+    "test:integration": "bun run tests/integration.ts",
+    "test:load": "k6 run tests/load/scrape.load.js",
+    "test:load:fixture": "bun run tests/load/fixture-server.ts",
+    "test:load:capture": "bun run tests/load/capture-stats.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

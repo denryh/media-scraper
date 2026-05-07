@@ -22,8 +22,15 @@ bun run lint
 # Integration test (requires postgres + redis running)
 bun run test:integration
 
-# Load test (requires k6 installed and backend running)
-k6 run backend/tests/load/scrape.load.js
+# Load test — fires two concurrent scenarios (50×100 + 10×500 = 10k URLs).
+# Requires k6 installed (brew install k6), backend running, and the fixture
+# server running on the host (the backend in compose reaches it via
+# host.docker.internal). Optional: capture-stats samples docker stats +
+# /api/queue-stats and prints peaks (CPU%/Mem% relative to compose limits):
+#   bun run --filter backend test:load:fixture &
+#   bun run --filter backend test:load:capture &
+#   k6 run backend/tests/load/scrape.load.js
+# Override FIXTURE_URL=http://localhost:9099 when backend runs via `bun run dev`.
 
 # Generate a new DB migration after schema changes
 cd backend && bun x drizzle-kit generate
@@ -98,6 +105,12 @@ The API can accept thousands of requests; the queue drains them at a controlled 
 ### Docker
 
 Each service has its own Dockerfile (`backend/Dockerfile`, `frontend/Dockerfile`). Both use `context: .` (repo root) in `docker-compose.yml` so the full monorepo is available during build. All workspace `package.json` manifests must be copied before `bun install` so Bun can resolve `workspace:*` references — adding a new workspace requires adding its `package.json` COPY line to both Dockerfiles.
+
+`docker-compose.yml` caps backend at 1GB / 1.0 CPU, postgres at 512MB / 0.5 CPU, redis at 256MB / 0.25 CPU so local runs match the documented prod envelope. Adjust if benchmarking against different limits.
+
+### Observability
+
+`GET /api/queue-stats` returns BullMQ job counts (`waiting`, `active`, `delayed`, `completed`, `failed`, `paused`) plus `process.memoryUsage()`. Useful for distinguishing "API accepted, worker stuck" from "API accepted, queue draining" during load tests.
 
 ### Logging
 
