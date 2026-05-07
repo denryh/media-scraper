@@ -69,7 +69,7 @@ POST /api/scrape
   → addBulk() enqueues all jobs into Redis (BullMQ)
   → returns {batchId} immediately (async — jobs not yet processed)
 
-BullMQ worker (concurrency: 10, rate: 50/s)
+BullMQ worker (concurrency: 30, rate: 500/s)
   → fetchAndExtract(url) — fetchStream() + extractFromStream(), 10s timeout
   → inserts media rows
   → updates batch counters (completed/failed)
@@ -86,13 +86,14 @@ The API can accept thousands of requests; the queue drains them at a controlled 
 
 ### Key config (`backend/src/config.ts`)
 
-| Key | Default | Env var |
-|-----|---------|---------|
-| `workerConcurrency` | 10 | `WORKER_CONCURRENCY` |
-| `workerRateLimit` | 50/s | `WORKER_RATE_LIMIT` |
-| `jobRetries` | 3 | — |
-| `fetchTimeout` | 10s | — |
-| `maxUrlsPerRequest` | 500 | — |
+| Key                 | Default | Env var              |
+| ------------------- | ------- | -------------------- |
+| `workerConcurrency` | 30      | `WORKER_CONCURRENCY` |
+| `workerRateLimit`   | 500/s   | `WORKER_RATE_LIMIT`  |
+| `maxQueueSize`      | 500,000 | `MAX_QUEUE_SIZE`     |
+| `jobRetries`        | 3       | —                    |
+| `fetchTimeout`      | 10s     | —                    |
+| `maxUrlsPerRequest` | 500     | —                    |
 
 ### Docker
 

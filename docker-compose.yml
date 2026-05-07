@@ -10,18 +10,13 @@ services:
       REDIS_URL: redis://redis:6379
       PORT: '3001'
       NODE_ENV: production
-      WORKER_CONCURRENCY: '10'
-      WORKER_RATE_LIMIT: '50'
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 400M
+    init: true
+    restart: unless-stopped
 
   frontend:
     build:
@@ -29,12 +24,11 @@ services:
       dockerfile: frontend/Dockerfile
     ports:
       - '3000:80'
+    init: true
+    restart: unless-stopped
     depends_on:
-      - backend
-    deploy:
-      resources:
-        limits:
-          memory: 64M
+      backend:
+        condition: service_healthy
 
   postgres:
     image: postgres:16-alpine
@@ -51,25 +45,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   redis:
     image: redis:7-alpine
     ports:
       - '6379:6379'
-    command: redis-server --maxmemory 128mb --maxmemory-policy noeviction
+    command: redis-server --maxmemory-policy noeviction
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 192M
 
 volumes:
   pgdata:

@@ -3,3 +3,10 @@
 .git
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+coverage
+.github

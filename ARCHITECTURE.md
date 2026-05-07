@@ -201,14 +201,16 @@ frontend:
 
 All workspace `package.json` manifests are copied into `base` before `bun install` so Bun can resolve `workspace:*` references across the monorepo. Only the source files needed per service are copied after.
 
-**Memory budget (1GB total):**
+**Resource constraints:**
 
-| Service | Limit |
-|---------|-------|
-| Backend (Bun + Hono + BullMQ + worker) | 400MB |
-| PostgreSQL | 256MB |
-| Redis (`--maxmemory 128mb`) | 192MB |
-| Frontend (nginx) | 64MB |
+The 1 CPU / 1 GB memory constraint applies to the **backend container only**. PostgreSQL, Redis, and the nginx frontend have no enforced limits and are free to use available host resources.
+
+| Service | CPU limit | Memory limit |
+|---------|-----------|--------------|
+| Backend | 1.0 | 1 GB |
+| PostgreSQL | — | — |
+| Redis | — | — |
+| Frontend (nginx) | — | — |
 
 ---
 

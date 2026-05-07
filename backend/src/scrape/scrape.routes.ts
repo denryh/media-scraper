@@ -5,6 +5,8 @@ import { ScrapeRequestSchema } from '@media-scraper/types';
 import { db } from '../db';
 import { batches, scrapeJobs } from '../db/schema';
 import { scrapeQueue } from './scrape.queue';
+import { config } from '../config';
+import { logger } from '../lib/logger';
 
 
 export const scrapeRoutes = new Hono();
@@ -12,6 +14,21 @@ export const scrapeRoutes = new Hono();
 // POST /api/scrape — accept URLs, create batch, enqueue jobs
 scrapeRoutes.post('/', zValidator('json', ScrapeRequestSchema), async (c) => {
   const { urls } = c.req.valid('json');
+
+  // Reject if queue is too deep — prevents Redis OOM under sustained load.
+  // Soft cap: getJobCounts + addBulk isn't atomic, so concurrent requests can
+  // overshoot by up to (in-flight requests × maxUrlsPerRequest). Bounded and
+  // acceptable for a backpressure signal.
+  const counts = await scrapeQueue.getJobCounts('waiting', 'active', 'delayed', 'paused');
+  const queueDepth =
+    (counts.waiting ?? 0) + (counts.active ?? 0) + (counts.delayed ?? 0) + (counts.paused ?? 0);
+  if (queueDepth + urls.length > config.maxQueueSize) {
+    logger.warn(
+      { queueDepth, incoming: urls.length, maxQueueSize: config.maxQueueSize },
+      'queue full, rejecting request',
+    );
+    return c.json({ error: 'Queue is full, try again later' }, 503);
+  }
 
   // Create batch
   const [batch] = await db
