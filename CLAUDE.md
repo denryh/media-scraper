@@ -76,7 +76,7 @@ POST /api/scrape
   → addBulk() enqueues all jobs into Redis (BullMQ)
   → returns {batchId} immediately (async — jobs not yet processed)
 
-BullMQ worker (concurrency: 30, rate: 500/s)
+BullMQ worker (concurrency: 60, rate: 1000/s)
   → fetchAndExtract(url) — fetchStream() + extractFromStream(), 10s timeout
   → inserts media rows
   → updates batch counters (completed/failed)
@@ -93,24 +93,32 @@ The API can accept thousands of requests; the queue drains them at a controlled 
 
 ### Key config (`backend/src/config.ts`)
 
-| Key                 | Default | Env var              |
-| ------------------- | ------- | -------------------- |
-| `workerConcurrency` | 30      | `WORKER_CONCURRENCY` |
-| `workerRateLimit`   | 500/s   | `WORKER_RATE_LIMIT`  |
-| `maxQueueSize`      | 500,000 | `MAX_QUEUE_SIZE`     |
-| `jobRetries`        | 3       | —                    |
-| `fetchTimeout`      | 10s     | —                    |
-| `maxUrlsPerRequest` | 500     | —                    |
+| Key                    | Default | Env var               |
+| ---------------------- | ------- | --------------------- |
+| `workerConcurrency`    | 60      | `WORKER_CONCURRENCY`  |
+| `workerRateLimit`      | 1000/s  | `WORKER_RATE_LIMIT`   |
+| `maxQueueSize`         | 500,000 | `MAX_QUEUE_SIZE`      |
+| `databaseMaxPoolSize`  | 25      | `DATABASE_POOL_SIZE`  |
+| `jobRetries`           | 3       | —                     |
+| `fetchTimeout`         | 10s     | —                     |
+| `maxUrlsPerRequest`    | 500     | —                     |
+
+`docker-compose.yml` plumbs the four env vars above into the backend service so they can be overridden per run, e.g. `WORKER_CONCURRENCY=90 docker compose up -d --force-recreate backend`.
 
 ### Docker
 
 Each service has its own Dockerfile (`backend/Dockerfile`, `frontend/Dockerfile`). Both use `context: .` (repo root) in `docker-compose.yml` so the full monorepo is available during build. All workspace `package.json` manifests must be copied before `bun install` so Bun can resolve `workspace:*` references — adding a new workspace requires adding its `package.json` COPY line to both Dockerfiles.
 
-`docker-compose.yml` caps backend at 1GB / 1.0 CPU, postgres at 512MB / 0.5 CPU, redis at 256MB / 0.25 CPU so local runs match the documented prod envelope. Adjust if benchmarking against different limits.
+`docker-compose.yml` caps **backend only** at 1GB / 1.0 CPU per the spec ("1 CPU + 1 GB applies to the backend tier"). Postgres, Redis, and the nginx frontend are uncapped and use whatever the host has.
 
 ### Observability
 
-`GET /api/queue-stats` returns BullMQ job counts (`waiting`, `active`, `delayed`, `completed`, `failed`, `paused`) plus `process.memoryUsage()`. Useful for distinguishing "API accepted, worker stuck" from "API accepted, queue draining" during load tests.
+`GET /api/queue-stats` returns:
+- BullMQ job counts (`waiting`, `active`, `delayed`, `completed`, `failed`, `paused`)
+- `process.memoryUsage()` (`rss`, `heapTotal`, `heapUsed`, `external`)
+- `eventLoop` histogram in ms (`p50_ms`, `p95_ms`, `p99_ms`, `max_ms`, `mean_ms`) — the direct measure of "is the main thread blocked?", independent of HTTP/DB latency. Sourced from `perf_hooks.monitorEventLoopDelay({ resolution: 10 })`.
+
+`POST /api/queue-stats/reset` zeroes the event-loop histogram so the next sample window is clean — `capture-stats.ts` calls this at startup before each run.
 
 ### Logging
 

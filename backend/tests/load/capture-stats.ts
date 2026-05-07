@@ -63,10 +63,58 @@ console.log(
 console.log(`container ids: ${cids.join(' ')}`);
 console.log(`docker stats format: ${STATS_FORMAT}`);
 
+// Reset the event-loop histogram so peaks reflect this run only, not whatever
+// blocking happened during prior tests / startup.
+try {
+  const reset = await fetch(`${BACKEND_URL}/api/queue-stats/reset`, {
+    method: 'POST',
+  });
+  if (reset.ok) console.log('reset event loop histogram');
+} catch {
+  // not running yet — non-fatal
+}
+
 let loggedFirstStats = false;
 let loggedFirstQueue = false;
 let dockerFailures = 0;
 let queueFailures = 0;
+let reported = false;
+
+async function report(reason: 'duration' | 'signal') {
+  if (reported) return;
+  reported = true;
+
+  const csv = [
+    'ts,name,metric,value',
+    ...samples.map((s) => `${s.ts},${s.name},${s.metric},${s.value}`),
+  ].join('\n');
+  await Bun.write(OUT, csv);
+
+  const peaks = new Map<string, number>();
+  for (const s of samples) {
+    const key = `${s.name}:${s.metric}`;
+    peaks.set(key, Math.max(peaks.get(key) ?? -Infinity, s.value));
+  }
+
+  if (reason === 'signal') console.log('\n(stopping early)');
+  console.log(`\nwrote ${samples.length} samples to ${OUT}`);
+  if (dockerFailures > 0 || queueFailures > 0) {
+    console.log(
+      `failures: docker=${dockerFailures} queue=${queueFailures} (out of ~${Math.floor((DURATION_S * 1000) / INTERVAL_MS)} ticks)`,
+    );
+  }
+  console.log('\n=== peaks ===');
+  for (const [k, v] of [...peaks.entries()].sort()) {
+    console.log(k.padEnd(36), v.toFixed(2));
+  }
+}
+
+for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(sig, async () => {
+    await report('signal');
+    process.exit(0);
+  });
+}
 
 while (Date.now() - start < DURATION_S * 1000) {
   const ts = Math.floor(Date.now() / 1000);
@@ -112,6 +160,13 @@ while (Date.now() - start < DURATION_S * 1000) {
       const qs = (await res.json()) as {
         queue: Record<string, number>;
         memory: { rss: number; heapUsed: number };
+        eventLoop?: {
+          p50_ms: number;
+          p95_ms: number;
+          p99_ms: number;
+          max_ms: number;
+          mean_ms: number;
+        };
       };
       if (!loggedFirstQueue) {
         console.log('first queue-stats response:', JSON.stringify(qs));
@@ -147,6 +202,26 @@ while (Date.now() - start < DURATION_S * 1000) {
         metric: 'heap_mb',
         value: qs.memory.heapUsed / 1024 / 1024,
       });
+      if (qs.eventLoop) {
+        samples.push({
+          ts,
+          name: 'event_loop',
+          metric: 'p95_ms',
+          value: qs.eventLoop.p95_ms,
+        });
+        samples.push({
+          ts,
+          name: 'event_loop',
+          metric: 'p99_ms',
+          value: qs.eventLoop.p99_ms,
+        });
+        samples.push({
+          ts,
+          name: 'event_loop',
+          metric: 'max_ms',
+          value: qs.eventLoop.max_ms,
+        });
+      }
     }
   } catch (err) {
     queueFailures++;
@@ -156,25 +231,4 @@ while (Date.now() - start < DURATION_S * 1000) {
   await Bun.sleep(INTERVAL_MS);
 }
 
-const csv = [
-  'ts,name,metric,value',
-  ...samples.map((s) => `${s.ts},${s.name},${s.metric},${s.value}`),
-].join('\n');
-await Bun.write(OUT, csv);
-
-const peaks = new Map<string, number>();
-for (const s of samples) {
-  const key = `${s.name}:${s.metric}`;
-  peaks.set(key, Math.max(peaks.get(key) ?? -Infinity, s.value));
-}
-
-console.log(`\nwrote ${samples.length} samples to ${OUT}`);
-if (dockerFailures > 0 || queueFailures > 0) {
-  console.log(
-    `failures: docker=${dockerFailures} queue=${queueFailures} (out of ~${Math.floor((DURATION_S * 1000) / INTERVAL_MS)} ticks)`,
-  );
-}
-console.log('\n=== peaks ===');
-for (const [k, v] of [...peaks.entries()].sort()) {
-  console.log(k.padEnd(36), v.toFixed(2));
-}
+await report('duration');

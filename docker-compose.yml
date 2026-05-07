@@ -10,6 +10,10 @@ services:
       REDIS_URL: redis://redis:6379
       PORT: '3001'
       NODE_ENV: production
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-6}
+      WORKER_RATE_LIMIT: ${WORKER_RATE_LIMIT:-1000}
+      MAX_QUEUE_SIZE: ${MAX_QUEUE_SIZE:-500000}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-25}
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,8 +51,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    mem_limit: 512m
-    cpus: 0.5
 
   redis:
     image: redis:7-alpine
@@ -60,8 +62,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    mem_limit: 256m
-    cpus: 0.25
 
 volumes:
   pgdata:

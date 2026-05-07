@@ -34,7 +34,7 @@ import { Trend, Counter } from 'k6/metrics';
 
 const BACKEND_URL = __ENV.BACKEND_URL || 'http://localhost:3001';
 const FIXTURE_URL = __ENV.FIXTURE_URL || 'http://host.docker.internal:9099';
-const POLL_INTERVAL_MS = Number(__ENV.POLL_INTERVAL_MS) || 1000;
+const POLL_INTERVAL_MS = Number(__ENV.POLL_INTERVAL_MS) || 2000;
 const POLL_TIMEOUT_MS = Number(__ENV.POLL_TIMEOUT_MS) || 5 * 60 * 1000;
 
 const batchDrainSeconds = new Trend('batch_drain_seconds', true);
@@ -63,7 +63,11 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ['rate<0.05'],
-    'http_req_duration{name:scrape_post}': ['p(95)<3000'],
+    // Polls fire continuously *during* the worker drain, so their latency is
+    // the closest HTTP-level proxy for "API responsive while worker grinds".
+    // Posts only fire in the initial burst, before heavy worker activity, so
+    // they don't measure event-loop blocking.
+    'http_req_duration{name:scrape_poll}': ['p(95)<200'],
     batches_timed_out: ['count==0'],
   },
 };
